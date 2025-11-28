@@ -100,41 +100,51 @@ public void unlock(String key) {
 
 ## 🧪 테스트 구성
 
-### 1. 단위 테스트 (JUnit)
-- **파일**: `ConcurrencyIntegrationTest.java`
-- **테스트 수**: 7개
-- **검증 항목**:
-  - BASE: 동시성 이슈 발생 확인
-  - 5가지 전략: 10명 동시 충전 시 정확한 잔액 유지
-  - Pessimistic Lock: 100명 대량 동시 충전 성공
+### Cucumber BDD 테스트
+- **파일**:
+  - `src/test/resources/features/point_concurrency.feature` - BDD 시나리오
+  - `src/test/java/personal/currency/point/ConcurrencyTestSteps.java` - Step Definitions
+  - `src/test/java/personal/currency/point/CucumberTestRunner.java` - 테스트 러너
 
-### 2. BDD 테스트 (Cucumber)
-- **파일**: `point_concurrency.feature`, `ConcurrencyTestSteps.java`
 - **시나리오 수**: 8개
 - **특징**:
-  - Given-When-Then 구조
-  - 한글 시나리오로 가독성 향상
-  - 다양한 동시성 시나리오 검증
+  - **Given-When-Then** 구조로 비즈니스 시나리오 명확화
+  - **한글 시나리오**로 가독성 향상
+  - **ExecutorService & CountDownLatch** 활용한 동시성 검증
+  - 각 전략별 10명 동시 충전 테스트
+  - 대량 동시 충전 테스트 (100명)
+
+**시나리오 목록**:
+1. Base PointService - 동시성 이슈 발생 (실패 케이스)
+2. Java Native Synchronized - 동시성 제어 성공
+3. Java Explicit ReentrantLock - 동시성 제어 성공
+4. DB Pessimistic Lock - 동시성 제어 성공
+5. DB Optimistic Lock with Retry - 동시성 제어 성공
+6. Distributed Lock (FakeRedis) - 동시성 제어 성공
+7. 대량 동시 충전 테스트 - Synchronized (100명)
+8. 대량 동시 충전 테스트 - Pessimistic Lock (100명)
 
 ### 테스트 실행 방법
 
 ```bash
-# 모든 테스트 실행
+# Cucumber BDD 테스트 실행
 ./gradlew test
 
-# 특정 테스트만 실행
-./gradlew test --tests "personal.currency.point.ConcurrencyIntegrationTest"
+# 또는 명시적으로
 ./gradlew test --tests "personal.currency.point.CucumberTestRunner"
 ```
 
 ### 테스트 결과 확인
 
 ```bash
-# HTML 리포트
+# JUnit HTML 리포트
 build/reports/tests/test/index.html
 
-# Cucumber 리포트
+# Cucumber HTML 리포트 (상세 시나리오 결과)
 build/cucumber-reports/cucumber.html
+
+# Cucumber JSON 리포트
+build/cucumber-reports/cucumber.json
 ```
 
 ## 📊 성능 비교
@@ -186,6 +196,7 @@ src/test/
 - **Testing**: JUnit 5, Cucumber 7.20.1, AssertJ
 - **Build Tool**: Gradle 8.14.3
 - **ORM**: JPA/Hibernate
+- **Container**: Docker, Docker Compose
 
 ## 💡 핵심 학습 포인트
 
@@ -212,28 +223,72 @@ src/test/
 ## ✅ 테스트 결과
 
 ```
-BUILD SUCCESSFUL in 2m 7s
+BUILD SUCCESSFUL
 
-17 tests completed, 17 passed
-- CurrencyApplicationTests: 1 passed
-- ConcurrencyIntegrationTest: 7 passed
-- CucumberTestRunner: 8 passed
+9 tests completed, 9 passed (Cucumber Scenarios)
+
+CucumberTestRunner:
+✓ Base PointService - 동시성 이슈 발생 (실패 케이스)
+✓ Java Native Synchronized - 동시성 제어 성공
+✓ Java Explicit ReentrantLock - 동시성 제어 성공
+✓ DB Pessimistic Lock - 동시성 제어 성공
+✓ DB Optimistic Lock with Retry - 동시성 제어 성공
+✓ Distributed Lock (FakeRedis) - 동시성 제어 성공
+✓ 대량 동시 충전 테스트 - Synchronized
+✓ 대량 동시 충전 테스트 - Pessimistic Lock
+✓ Application Context Loads
 ```
 
-모든 동시성 제어 전략이 정상적으로 작동하며, 테스트를 통해 검증되었습니다.
+**모든 동시성 제어 전략이 Cucumber BDD 시나리오를 통해 검증되었습니다.**
 
 ## 🚀 실행 방법
 
-```bash
-# 프로젝트 빌드
-./gradlew clean build
+### 🧪 Cucumber BDD 테스트 실행 (Docker 불필요)
 
-# 테스트 실행
+테스트는 H2 인메모리 DB를 사용하므로 **어떤 환경에서도 바로 실행 가능**합니다.
+
+```bash
+# Cucumber BDD 테스트 실행
 ./gradlew test
 
-# 애플리케이션 실행
+# 테스트 리포트 확인
+# - JUnit 스타일: build/reports/tests/test/index.html
+# - Cucumber 리포트: build/cucumber-reports/cucumber.html
+# - Cucumber JSON: build/cucumber-reports/cucumber.json
+```
+
+### 🐳 Docker Compose로 전체 환경 실행
+
+```bash
+# 1. MySQL + 애플리케이션 모두 실행
+docker-compose up -d
+
+# 2. 로그 확인
+docker-compose logs -f app
+
+# 3. 접속
+# http://localhost:8080
+
+# 4. 종료
+docker-compose down
+
+# 5. 데이터 포함 완전 삭제
+docker-compose down -v
+```
+
+### 💻 로컬 개발 환경 실행
+
+```bash
+# Option 1: Docker로 MySQL만 실행
+docker-compose up mysql -d
+./gradlew bootRun
+
+# Option 2: 완전 로컬 환경 (MySQL 설치 필요)
+# MySQL 설치 후
 ./gradlew bootRun
 ```
+
+📖 **상세한 Docker 가이드**: [DOCKER_GUIDE.md](DOCKER_GUIDE.md) 참고
 
 ## 📌 주의사항
 
