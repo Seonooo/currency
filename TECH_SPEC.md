@@ -129,7 +129,7 @@ Redisson은 내부적으로 **Lua Script**를 사용하여 락 해제 시 소유
 
 #### 문제 상황
 
-Spring AOP의 `@Transactional`은 메서드 리턴 **후(After)**에 커밋된다. 커밋되기 전에 Lock이 해제되면 다른 스레드가 아직 커밋되지 않은 과거 데이터를 읽게 된다.
+Spring AOP의 `@Transactional`은 메서드 리턴 후에 커밋된다. 커밋되기 전에 Lock이 해제되면 다른 스레드가 아직 커밋되지 않은 과거 데이터를 읽게 된다.
 
 #### 문제 발생 시나리오
 
@@ -162,7 +162,7 @@ public void reserveSeat(Long seatId) {
 
 ---
 
-### 2.4 Retry Storm 방어: Exponential Backoff + Jitter
+### 2.4 Retry Storm 방어: Fixed Jitter for Speed
 
 #### 문제 상황 (Thundering Herd)
 
@@ -170,16 +170,11 @@ public void reserveSeat(Long seatId) {
 
 #### 해결 전략
 
-| 전략 | 설명 |
-|:---|:---|
-| **Exponential Backoff** | 재시도 간격을 지수적으로 증가 (100ms → 200ms → 400ms → 800ms) |
-| **Jitter** | 각 대기 시간에 무작위 값을 추가하여 재시도 시점 분산 |
-| **Max Retry** | 최대 재시도 횟수 제한 (예: 3~5회) |
-| **Max Delay Cap** | 대기 시간 상한선 설정 (예: 2초) |
+대규모 티켓팅 프로젝트는 대규모 트래픽 환경에서의 생존성(Resilience)과 정합성(Consistency)을 최우선으로 한다.
 
-```
-delay = min(baseDelay * 2^attempt + random(0, jitter), maxDelay)
-```
+1. Retry: 인프라성 에러에 한해 1회만 허용하여 트래픽 증폭을 막는다.
+2. Backoff: Short Jitter(0~50ms)를 적용하여 속도 경쟁력을 유지하면서도 동시성 충돌을 최소화한다.
+3. Fail Fast: 그 외 모든 지연(Read Timeout 등)은 즉시 실패 처리하여 스레드를 해방시킨다.
 
 ---
 
